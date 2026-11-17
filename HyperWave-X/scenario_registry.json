@@ -1,0 +1,1605 @@
+{
+  "schema_version": "1.0.0",
+  "protocol_version": "V1",
+  "status": "FROZEN",
+  "frozen_at": "2026-10-19",
+  "formal_seeds": [
+    20,
+    23,
+    56,
+    89,
+    2025
+  ],
+  "formal_scenario_ids": [
+    "hetero_mixed",
+    "hetero_strong",
+    "consensus_wide",
+    "fog_sight1_level",
+    "dynamic_overload",
+    "scale_20"
+  ],
+  "reviewer_probe_ids": [
+    "probe_complementary",
+    "probe_interaction"
+  ],
+  "shared_protocol": {
+    "scenario_id_adapters": {
+      "canonical": "<scenario_id>",
+      "hypercomm_and_hyperwavex_cli": "lbf_<scenario_id>-v0",
+      "teamcomm_cli": "Foraging-<scenario_id>"
+    },
+    "action": {
+      "space": "Discrete(6)",
+      "ordered_values": [
+        "NONE",
+        "NORTH",
+        "SOUTH",
+        "WEST",
+        "EAST",
+        "LOAD"
+      ],
+      "movement": "One orthogonal grid cell per step; an invalid action is replaced by NONE.",
+      "load": "A loader selects the first adjacent task in deterministic NORTH, SOUTH, WEST, EAST order. A task is completed only by agents adjacent to that task that all select LOAD in the same environment step and whose summed capability reaches its threshold. Capability never accumulates across steps. Reviewer probes add the explicitly registered resource-lock or station-interlock rule equally for both compared methods."
+    },
+    "observation": {
+      "decentralized": true,
+      "spatial_channels": [
+        "local task-threshold grid within the scenario sight radius",
+        "local accessibility grid within the scenario sight radius"
+      ],
+      "self_channels": "Two global axis vectors encode only the observing agent's row, column, and capability.",
+      "public_static_metadata": "The ordered fleet capability roster is appended to every agent observation. This is identical for every algorithm and represents known equipment ratings; no peer position or peer hidden state is exposed.",
+      "public_clock": "The scalar current_step/horizon is appended to every agent observation.",
+      "not_observed": [
+        "positions of agents outside the local spatial channels",
+        "future dynamic task locations",
+        "other agents' actions",
+        "other agents' recurrent states"
+      ],
+      "probe_operational_status": "Reviewer probes append one scalar available to every method: own service-lock state in Probe 1 or own noisy station-interlock reading in Probe 2."
+    },
+    "collision": {
+      "resolution": "If two or more agents target the same destination cell, every agent in that destination group remains at its previous position.",
+      "counting": "One collision event per contested destination per step.",
+      "edge_swap": "Two-agent position swaps are allowed and are not counted as a collision.",
+      "reward_penalty": 0.0
+    },
+    "reward": {
+      "successful_task_team_reward": "max(0, c - 0.25*max(0, sum_capability-c) - 0.05*max(0, coalition_size-1))",
+      "individual_reward": "The successful task team reward is divided equally among the agents that synchronously LOAD that task; every other agent receives zero for that task.",
+      "team_reward": "Sum of all individual rewards in the step.",
+      "task_completion_bonus": "Included in successful_task_team_reward; there is no additional bonus.",
+      "collision_penalty": 0.0,
+      "communication_penalty": 0.0,
+      "idle_penalty": 0.0,
+      "reason": "Collision and communication are reported as operational metrics so that environment reward is identical for algorithms with different communication mechanisms."
+    },
+    "workload_metrics": {
+      "W_all": "Number of all tasks declared by the scenario, including dynamic tasks that have not yet arrived or are waiting in the placement backlog.",
+      "W_done": "Number of declared tasks actually completed by a threshold-feasible synchronized LOAD.",
+      "task_completion_ratio": "W_done/W_all",
+      "episode_success": "1 if and only if W_done equals W_all at the fixed horizon; otherwise 0.",
+      "throughput": "W_done divided by the fixed scenario horizon.",
+      "capacity_workload": "The sum of declared task thresholds is logged separately and is never used as the task-count denominator."
+    },
+    "termination": {
+      "rule": "Every episode ends at the fixed scenario horizon, including episodes that finish all currently active tasks early.",
+      "early_success_termination": false,
+      "reason": "A fixed decision window gives every algorithm an identical interaction budget and prevents temporary empty maps in dynamic_overload from ending an episode before later arrivals."
+    },
+    "layout_randomness": {
+      "source": "Only the environment RNG seeded by the run/evaluation seed may place agents, tasks, or arrivals.",
+      "task_placement": "Random tasks occupy interior cells, avoid agents, and satisfy the common spacing rule. Failure to place the declared workload raises an error or remains in the explicit dynamic backlog; tasks are never silently dropped.",
+      "policy_independence": "The complete dynamic release times and requirement sequence are sampled before the first action. Policy-dependent occupancy may delay physical placement through the backlog but cannot change W_all or the task sequence."
+    }
+  },
+  "scenarios": {
+    "hetero_mixed": {
+      "name": "Rolling mixed-capability order waves",
+      "family": "operational_heterogeneity",
+      "suite": "comparison",
+      "real_world_meaning": "A mixed-capability AGV fleet serves rolling pallet and tote orders whose payload thresholds change during a warehouse shift.",
+      "industrial_challenges": [
+        "capability complementarity",
+        "rolling mixed-payload arrivals",
+        "scarce high-capability resource allocation",
+        "coalition reconfiguration",
+        "communication selection under local observations"
+      ],
+      "innovation_targets": [
+        "capability-conditioned candidate coalition prior",
+        "input-anchored dissipative coalition-feature refinement",
+        "sparse execution routing"
+      ],
+      "baseline_theoretical_difficulty": "Every method receives the same local observation, public capability roster, release clock, action space, and training budget. The rolling mix is solvable without an explicit communication module, but policies without capability-conditioned coalition structure or current task-relevant messages may require more interaction to reassign scarce high-capability robots when thresholds change.",
+      "map": {
+        "shape": [
+          18,
+          18
+        ],
+        "layout": "Random agent cells and twelve seeded, spaced interior task cells reserved at reset; four jobs are initially active and four two-job waves are released during the episode."
+      },
+      "agents": {
+        "count": 15,
+        "types": [
+          "capability_1",
+          "capability_2",
+          "capability_3",
+          "capability_4",
+          "capability_5",
+          "capability_6"
+        ],
+        "capabilities": [
+          1,
+          1,
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          4,
+          4,
+          4,
+          5,
+          5,
+          6,
+          6
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          7,
+          9,
+          11,
+          8,
+          10,
+          12
+        ],
+        "threshold": "Every job exceeds the strongest individual capability (6). Mixed thresholds admit several feasible coalitions but assign different opportunity costs to capability-5 and capability-6 robots.",
+        "arrival_process": {
+          "type": "scheduled_mixed_waves",
+          "event_order": "Each event is released after resolving the listed environment step and is visible in the next observation.",
+          "initial_requirements": [
+            7,
+            8,
+            9,
+            10
+          ],
+          "events": [
+            {
+              "after_step": 25,
+              "requirements": [
+                11,
+                12
+              ]
+            },
+            {
+              "after_step": 50,
+              "requirements": [
+                7,
+                9
+              ]
+            },
+            {
+              "after_step": 75,
+              "requirements": [
+                11,
+                8
+              ]
+            },
+            {
+              "after_step": 100,
+              "requirements": [
+                10,
+                12
+              ]
+            }
+          ],
+          "backlog": "FIFO; all twelve jobs count in W_all from reset and no job is dropped if its reserved cell is temporarily occupied."
+        },
+        "workload": {
+          "task_count": 12,
+          "capacity_units": 114
+        }
+      },
+      "load_synchronization": "All members of a threshold-feasible serving coalition must select LOAD on the same task in the same step.",
+      "collision": "Shared protocol collision rule; congestion is measured and has zero reward weight.",
+      "horizon": 160,
+      "success_definition": "All 12 declared jobs, including all rolling arrivals, completed by step 160.",
+      "termination": "Fixed at step 160; temporary absence of active jobs before the final release never terminates the episode.",
+      "observation": {
+        "sight": 2,
+        "special_rule": "The public clock and capability roster are observed; future task locations and thresholds remain unobserved until release."
+      },
+      "action": "Shared six-action protocol.",
+      "reward": "Shared operational reward.",
+      "communication_setting": "All methods receive identical observations and use only their native communication mechanism. N=15 creates 210 directed non-self candidate links; the environment prescribes neither coalitions nor communication edges.",
+      "uses": [
+        "Main",
+        "Ablation",
+        "Sensitivity",
+        "Interpretability"
+      ],
+      "reviewer_comments": [
+        "GE-1A-BASELINE",
+        "GE-1C-DECPOMDP",
+        "GE-1D-WAVE",
+        "GE-1E-ABLATION",
+        "GE-1E-INTERP"
+      ],
+      "core_claims": [
+        "capability-aware mixed-demand allocation",
+        "coalition reconfiguration under rolling orders",
+        "task-relevant sparse communication"
+      ]
+    },
+    "hetero_strong": {
+      "name": "Scarce heavy-duty capability complementarity",
+      "family": "strong_heterogeneity",
+      "suite": "comparison",
+      "real_world_meaning": "A warehouse combines light tote carriers and a small number of medium/heavy pallet movers; rolling jobs require different low-excess pairings, so using a scarce heavy robot on the wrong load can delay later work.",
+      "industrial_challenges": [
+        "strong multimodal heterogeneity",
+        "capability complementarity",
+        "scarce heavy-resource allocation",
+        "rolling coalition reassignment"
+      ],
+      "innovation_targets": [
+        "capability-conditioned candidate coalition prior",
+        "input-anchored dissipative coalition-feature refinement"
+      ],
+      "baseline_theoretical_difficulty": "Every method receives the same capability roster and released jobs. Four exact low-excess pair types exist, so all baselines can solve the scenario; methods that do not condition grouping on the current threshold may use oversized pairs or reserve the wrong heavy robot for the active workload.",
+      "map": {
+        "shape": [
+          15,
+          15
+        ],
+        "layout": "Random agent cells and eight seeded, spaced interior task cells reserved at reset; three jobs are initially active and two later waves are released."
+      },
+      "agents": {
+        "count": 8,
+        "types": [
+          "light_capability_1",
+          "medium_capability_2",
+          "heavy_capability_4",
+          "heavy_capability_5"
+        ],
+        "capabilities": [
+          1,
+          1,
+          2,
+          2,
+          4,
+          4,
+          5,
+          5
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          6,
+          7,
+          8,
+          9,
+          6,
+          8,
+          7,
+          9
+        ],
+        "threshold": "Every job exceeds the strongest individual capability (5). Exact two-robot pairings include 1+5 for 6, 2+5 for 7, 4+4 for 8, and 4+5 for 9, while oversized alternatives remain legal under the shared reward.",
+        "arrival_process": {
+          "type": "scheduled_threshold_waves",
+          "event_order": "Each event is released after resolving the listed environment step and is visible in the next observation.",
+          "initial_requirements": [
+            6,
+            7,
+            8
+          ],
+          "events": [
+            {
+              "after_step": 30,
+              "requirements": [
+                9,
+                6,
+                8
+              ]
+            },
+            {
+              "after_step": 60,
+              "requirements": [
+                7,
+                9
+              ]
+            }
+          ],
+          "backlog": "FIFO; all eight jobs count in W_all from reset and no job is dropped if its reserved cell is temporarily occupied."
+        },
+        "workload": {
+          "task_count": 8,
+          "capacity_units": 60
+        }
+      },
+      "load_synchronization": "Both members of a feasible pair, or every member of a larger feasible coalition, must select LOAD on the same task in the same step.",
+      "collision": "Shared protocol collision rule; congestion is measured and has zero reward weight.",
+      "horizon": 120,
+      "success_definition": "All 8 declared jobs, including both later waves, completed by step 120.",
+      "termination": "Fixed at step 120; temporary absence of active jobs before the final release never terminates the episode.",
+      "observation": {
+        "sight": 2,
+        "special_rule": "The public clock and capability roster are observed; future task locations and thresholds remain unobserved until release."
+      },
+      "action": "Shared six-action protocol.",
+      "reward": "Shared operational reward.",
+      "communication_setting": "All methods receive identical observations. With N=8, native HyperComm and HyperWave-X use two-member candidate hyperedges and there are 56 directed non-self candidate links; no pair or edge is prescribed.",
+      "uses": [
+        "Main",
+        "Ablation",
+        "Interpretability"
+      ],
+      "reviewer_comments": [
+        "GE-1A-BASELINE",
+        "GE-1C-DECPOMDP",
+        "GE-1D-WAVE",
+        "GE-1E-ABLATION",
+        "GE-1E-INTERP"
+      ],
+      "core_claims": [
+        "threshold-conditioned complementary pairing",
+        "scarce heavy-resource allocation",
+        "coalition reassignment under rolling heterogeneous demand"
+      ]
+    },
+    "consensus_wide": {
+      "name": "Staged heterogeneous wide-area synchronization",
+      "family": "operational_synchronization",
+      "suite": "comparison",
+      "real_world_meaning": "Heterogeneous handling robots repeatedly regroup as increasingly demanding transport requests arrive during one production window.",
+      "industrial_challenges": [
+        "capability complementarity",
+        "high task threshold",
+        "wide-area rendezvous",
+        "two- or three-agent same-step LOAD",
+        "staged task arrival and coalition reconfiguration"
+      ],
+      "innovation_targets": [
+        "capability-aware coalition construction",
+        "finite-depth input-anchored first-order dissipative coalition-feature refinement"
+      ],
+      "baseline_theoretical_difficulty": "Every method observes the same public capability roster, released tasks, and clock and can complete every task. Methods without capability-conditioned coalition construction may nevertheless select excess-capacity or incomplete groups, while a single aggregation pass may adapt less effectively when the required two- or three-agent coalition changes after each staged release.",
+      "map": {
+        "shape": [
+          17,
+          17
+        ],
+        "layout": "Random agent cells and six seeded, spaced interior task cells reserved at reset; two tasks are initially visible and four are released at steps 20, 40, 60, and 80."
+      },
+      "agents": {
+        "count": 12,
+        "types": [
+          "heterogeneous_capability_1_to_3"
+        ],
+        "capabilities": [
+          1,
+          1,
+          1,
+          2,
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          3,
+          3
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "threshold": "No capability-3 agent can work alone. Exact or low-excess service progresses from two-agent combinations for requirements 4--6 to three-agent combinations for requirements 7--9; the native N/4 hyperedge size is three.",
+        "arrival_process": {
+          "type": "scheduled_single",
+          "event_order": "Each event is added after resolving the listed environment step and is visible in the next observation.",
+          "initial_requirements": [
+            4,
+            5
+          ],
+          "events": [
+            {
+              "after_step": 20,
+              "requirements": [
+                6
+              ]
+            },
+            {
+              "after_step": 40,
+              "requirements": [
+                7
+              ]
+            },
+            {
+              "after_step": 60,
+              "requirements": [
+                8
+              ]
+            },
+            {
+              "after_step": 80,
+              "requirements": [
+                9
+              ]
+            }
+          ],
+          "backlog": "FIFO; all six tasks count in W_all from reset and no task is dropped if its reserved cell is temporarily occupied."
+        },
+        "workload": {
+          "task_count": 6,
+          "capacity_units": 39
+        }
+      },
+      "load_synchronization": "A threshold-feasible coalition of adjacent agents must select LOAD on the same task in the same step; no coalition membership is prescribed by the environment.",
+      "collision": "Shared protocol collision rule; the 17-by-17 layout retains route contention while allowing feasible rendezvous within the fixed horizon.",
+      "horizon": 140,
+      "success_definition": "All six declared tasks, including the four staged arrivals, completed by step 140.",
+      "termination": "Fixed at step 140; temporary absence of active tasks before a scheduled release never terminates the episode.",
+      "observation": {
+        "sight": 3,
+        "special_rule": "The shared public clock and capability roster are observed; future task locations remain unobserved."
+      },
+      "action": "Shared six-action protocol.",
+      "reward": "Shared operational reward.",
+      "communication_setting": "All methods use the same observation and their native communication mechanism. With N=12 there are 132 directed non-self candidate links; no coalition or communication edge is prescribed.",
+      "uses": [
+        "Main",
+        "Ablation",
+        "Sensitivity",
+        "Interpretability"
+      ],
+      "reviewer_comments": [
+        "GE-1A-BASELINE",
+        "GE-1C-DECPOMDP",
+        "GE-1D-WAVE",
+        "GE-1E-ABLATION",
+        "GE-1E-INTERP"
+      ],
+      "core_claims": [
+        "capability-conditioned coalition selection",
+        "high-threshold collaboration",
+        "same-step LOAD synchronization",
+        "coalition reconfiguration under staged arrivals",
+        "coalition-feature refinement"
+      ]
+    },
+    "fog_sight1_level": {
+      "name": "Restricted-perception heterogeneous collaboration",
+      "family": "partial_observability",
+      "suite": "comparison",
+      "real_world_meaning": "Shelving, blind corners, and short-range sensing restrict each heterogeneous robot to nearby task and free-space information.",
+      "industrial_challenges": [
+        "local information",
+        "capability complementarity",
+        "stale or missing remote state"
+      ],
+      "innovation_targets": [
+        "capability-conditioned candidate coalition prior",
+        "coalition-feature refinement",
+        "sparse execution routing"
+      ],
+      "baseline_theoretical_difficulty": "All baselines remain trainable with the same sight radius, but methods without capability-conditioned grouping may relay locally similar yet operationally incompatible information.",
+      "map": {
+        "shape": [
+          15,
+          15
+        ],
+        "layout": "Random agent cells and random, spaced interior task cells at reset."
+      },
+      "agents": {
+        "count": 12,
+        "types": [
+          "capability_1",
+          "capability_2",
+          "capability_3",
+          "capability_4",
+          "capability_5",
+          "capability_6"
+        ],
+        "capabilities": [
+          1,
+          1,
+          2,
+          2,
+          3,
+          3,
+          4,
+          4,
+          5,
+          5,
+          6,
+          6
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          7,
+          7,
+          8,
+          8,
+          9,
+          9,
+          10,
+          10,
+          11,
+          12
+        ],
+        "threshold": "Each task exceeds the strongest individual capability (6).",
+        "arrival_process": {
+          "type": "reset_all",
+          "initial_requirements": [
+            7,
+            7,
+            8,
+            8,
+            9,
+            9,
+            10,
+            10,
+            11,
+            12
+          ],
+          "events": []
+        },
+        "workload": {
+          "task_count": 10,
+          "capacity_units": 91
+        }
+      },
+      "load_synchronization": "All members of a serving coalition must select LOAD on the same step.",
+      "collision": "Shared protocol collision rule; congestion is measured, reward weight is zero.",
+      "horizon": 120,
+      "success_definition": "All 10 declared tasks completed by step 120.",
+      "termination": "Fixed at step 120.",
+      "observation": {
+        "sight": 1,
+        "special_rule": "Every agent receives only a one-cell-radius spatial crop; no sight-zero masking or privileged scout is used."
+      },
+      "action": "Shared six-action protocol.",
+      "reward": "Shared operational reward.",
+      "communication_setting": "All methods use sight=1 and the same public fleet roster. No privileged scout or global position channel is available. With N=12 there are 132 directed non-self candidate links.",
+      "uses": [
+        "Main",
+        "Ablation",
+        "Interpretability"
+      ],
+      "reviewer_comments": [
+        "GE-1A-BASELINE",
+        "GE-1C-DECPOMDP",
+        "GE-1E-ABLATION",
+        "GE-1E-INTERP"
+      ],
+      "core_claims": [
+        "partial observability",
+        "information relay",
+        "capability-aware collaboration under limited sensing"
+      ]
+    },
+    "dynamic_overload": {
+      "name": "Dynamic high-density workload",
+      "family": "dynamic_demand",
+      "suite": "comparison",
+      "real_world_meaning": "Transport requests arrive in waves during a busy production period, so coalitions must be dissolved, reassigned, and synchronized while aisles remain contested.",
+      "industrial_challenges": [
+        "dynamic task arrival",
+        "high task density",
+        "congestion",
+        "coalition reuse",
+        "information ageing"
+      ],
+      "innovation_targets": [
+        "capability-conditioned task-demand-adaptive candidate coalitions",
+        "finite-depth input-anchored first-order dissipative coalition-feature refinement",
+        "sparse execution routing"
+      ],
+      "baseline_theoretical_difficulty": "All methods observe the same released jobs, local task crop, public capability roster, and public clock. Seeded arrival jitter prevents the clock from identifying the current order set, while concurrent heterogeneous thresholds make a robot's best local assignment depend on remote capability commitments. Execution-time communication and task-conditioned regrouping are useful inductive biases; no baseline is denied information or prevented from learning a successful policy.",
+      "map": {
+        "shape": [
+          15,
+          15
+        ],
+        "layout": "Random agent cells; three random, spaced interior tasks at reset; three later three-job waves use the same seeded placement rule and an explicit FIFO backlog if temporarily unplaceable."
+      },
+      "agents": {
+        "count": 12,
+        "types": [
+          "capability_1",
+          "capability_2",
+          "capability_3",
+          "capability_4"
+        ],
+        "capabilities": [
+          1,
+          1,
+          1,
+          2,
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          4,
+          4
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          5,
+          7,
+          9,
+          6,
+          8,
+          9,
+          5,
+          7,
+          8,
+          6,
+          7,
+          8
+        ],
+        "threshold": "Every task exceeds the strongest individual capability (4). Requirements 5--9 require demand- and anchor-dependent two-, three-, or four-robot coalitions, and scarce capability-4 robots have different opportunity costs across concurrent jobs.",
+        "arrival_process": {
+          "type": "seeded_jittered_threshold_waves",
+          "event_order": "At reset, each nominal event time receives one seed-controlled integer offset in [-5,+5]. The three jobs in that event are added together after resolving the realized step and become visible in the next observation. Realized times are stored in the task plan and CSV provenance.",
+          "initial_requirements": [
+            5,
+            7,
+            9
+          ],
+          "events": [
+            {
+              "after_step": 25,
+              "jitter_steps": 5,
+              "requirements": [
+                6,
+                8,
+                9
+              ]
+            },
+            {
+              "after_step": 55,
+              "jitter_steps": 5,
+              "requirements": [
+                5,
+                7,
+                8
+              ]
+            },
+            {
+              "after_step": 85,
+              "jitter_steps": 5,
+              "requirements": [
+                6,
+                7,
+                8
+              ]
+            }
+          ],
+          "backlog": "FIFO; W_all includes backlog tasks immediately, and no task may be dropped because placement is temporarily blocked."
+        },
+        "workload": {
+          "task_count": 12,
+          "capacity_units": 85
+        }
+      },
+      "load_synchronization": "Adjacent agents must select LOAD on the same task in the same step and their summed capability must meet that task's realized threshold; required team size varies with demand and composition.",
+      "collision": "Shared protocol collision rule; dense arrivals stress access conflicts and coalition reuse.",
+      "horizon": 140,
+      "success_definition": "All 12 declared tasks, including all released/backlogged tasks, completed by step 140.",
+      "termination": "Fixed at step 140; an empty active map before the last jittered release does not terminate the episode.",
+      "observation": {
+        "sight": 2,
+        "special_rule": "The public clock and fleet capability roster are observed. Nominal release windows, realized jitter, future task locations, and future thresholds are not exposed through the observation."
+      },
+      "action": "Shared six-action protocol.",
+      "reward": "Shared operational reward.",
+      "communication_setting": "No future task location, threshold, or realized arrival offset is communicated. Each method handles the identical seeded release stream and may use only its native communication mechanism. N=12 yields 132 directed non-self candidate links; the environment prescribes no coalition or communication edge.",
+      "uses": [
+        "Main",
+        "Ablation",
+        "Sensitivity",
+        "Interpretability"
+      ],
+      "reviewer_comments": [
+        "GE-1A-BASELINE",
+        "GE-1C-DECPOMDP",
+        "GE-1E-ABLATION",
+        "GE-1E-INTERP"
+      ],
+      "core_claims": [
+        "dynamic task arrival",
+        "heterogeneous capability allocation",
+        "seeded order-time uncertainty",
+        "high task density",
+        "congestion",
+        "coalition reuse",
+        "communication prioritization"
+      ]
+    },
+    "scale_20": {
+      "name": "Twenty-agent rolling-shift sparse-topology stress",
+      "family": "communication_scale",
+      "suite": "comparison",
+      "real_world_meaning": "A twenty-robot mixed fleet receives pallet-handling jobs in waves across a large warehouse while sharing a bandwidth-limited coordination layer.",
+      "industrial_challenges": [
+        "fleet scaling",
+        "communication-link pressure",
+        "capability-aware coordination",
+        "rolling task arrival",
+        "information ageing"
+      ],
+      "innovation_targets": [
+        "capability-conditioned candidate coalition prior",
+        "input-anchored dissipative coalition-feature refinement",
+        "sparse execution routing"
+      ],
+      "baseline_theoretical_difficulty": "All methods retain identical observations, actions, rewards, task releases, and budgets. The staged workload gives every method early learnable rewards, while the 380 candidate directed links make task-relevant communication selection operationally meaningful; no method is assigned a communication mask or coalition.",
+      "map": {
+        "shape": [
+          20,
+          20
+        ],
+        "layout": "Random agent cells and twelve seeded, spaced interior task cells reserved at reset; four jobs are initially active and four two-job waves follow."
+      },
+      "agents": {
+        "count": 20,
+        "types": [
+          "capability_1",
+          "capability_2",
+          "capability_3",
+          "capability_4"
+        ],
+        "capabilities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          3,
+          4,
+          4
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          5,
+          6,
+          7,
+          8,
+          5,
+          7,
+          6,
+          8,
+          5,
+          6,
+          7,
+          8
+        ],
+        "threshold": "Every job exceeds the strongest individual capability (4). Requirements 5--8 support multiple feasible two- or three-robot coalitions with different excess capacity.",
+        "arrival_process": {
+          "type": "scheduled_scale_waves",
+          "event_order": "Each event is released after resolving the listed environment step and is visible in the next observation.",
+          "initial_requirements": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "events": [
+            {
+              "after_step": 25,
+              "requirements": [
+                5,
+                7
+              ]
+            },
+            {
+              "after_step": 50,
+              "requirements": [
+                6,
+                8
+              ]
+            },
+            {
+              "after_step": 75,
+              "requirements": [
+                5,
+                6
+              ]
+            },
+            {
+              "after_step": 100,
+              "requirements": [
+                7,
+                8
+              ]
+            }
+          ],
+          "backlog": "FIFO; all twelve jobs count in W_all from reset and no job is dropped if its reserved cell is temporarily occupied."
+        },
+        "workload": {
+          "task_count": 12,
+          "capacity_units": 78
+        }
+      },
+      "load_synchronization": "All members of a threshold-feasible serving coalition must select LOAD on the same task in the same step.",
+      "collision": "Shared protocol collision rule; congestion is measured and has zero reward weight.",
+      "horizon": 160,
+      "success_definition": "All 12 declared jobs, including all rolling arrivals, completed by step 160.",
+      "termination": "Fixed at step 160; temporary absence of active jobs before the final release never terminates the episode.",
+      "observation": {
+        "sight": 2,
+        "special_rule": "The public clock and capability roster are observed; future task locations and thresholds remain unobserved until release."
+      },
+      "action": "Shared six-action protocol.",
+      "reward": "Shared operational reward.",
+      "communication_setting": "All methods receive identical observations and use only their published communication mechanism. N=20 creates 380 directed non-self candidate links; task performance is reported jointly with active-link ratio and logical feature transfers.",
+      "uses": [
+        "Main",
+        "Ablation",
+        "Sensitivity",
+        "Interpretability"
+      ],
+      "reviewer_comments": [
+        "GE-1D-GUMBEL",
+        "GE-1D-WAVE",
+        "GE-1E-ABLATION",
+        "GE-1E-INTERP"
+      ],
+      "core_claims": [
+        "sparse communication at twenty-agent scale",
+        "rolling large-fleet coalition reconfiguration",
+        "performance-communication trade-off"
+      ]
+    },
+    "probe_complementary": {
+      "name": "Reviewer Probe 1: threshold-exact capability complementarity",
+      "family": "reviewer_probe",
+      "suite": "reviewer_probe",
+      "real_world_meaning": "Four heterogeneous robots must be committed once to two simultaneous handling stations; only the two disjoint threshold-exact pairs can complete both loads.",
+      "industrial_challenges": [
+        "threshold-exact capability complementarity",
+        "simultaneous scarce-resource partition",
+        "same-step LOAD"
+      ],
+      "innovation_targets": [
+        "threshold-conditioned capability-gap coalition construction"
+      ],
+      "baseline_theoretical_difficulty": "Every method receives identical observations, actions, rewards, starts, and service locks and can learn a successful policy. Both native constructors use two-member hyperedges. Feature-only similarity has no structural preference for the disjoint 1+8 and 2+7 complements; HyperWave-X ranks an exact visible-threshold complement ahead of every non-exact capability by construction.",
+      "map": {
+        "shape": [
+          7,
+          7
+        ],
+        "layout": "Two threshold-9 tasks are fixed at (2,2) and (2,4); capability-[1,2,7,8] identities are assigned by the reset seed to four symmetric start cells."
+      },
+      "agents": {
+        "count": 4,
+        "types": [
+          "capability_1",
+          "capability_2",
+          "capability_7",
+          "capability_8"
+        ],
+        "capabilities": [
+          1,
+          2,
+          7,
+          8
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          9,
+          9
+        ],
+        "threshold": "No agent can complete a task alone. Total fleet capability equals total demand (18), so both tasks can be completed under one-use service locks only by the disjoint exact pairs 1+8 and 2+7.",
+        "arrival_process": {
+          "type": "reset_all",
+          "initial_requirements": [
+            9,
+            9
+          ],
+          "events": []
+        },
+        "workload": {
+          "task_count": 2,
+          "capacity_units": 18
+        }
+      },
+      "load_synchronization": "Each selected pair must be adjacent to one task and issue LOAD in the same step. Successful members enter a terminal service lock for the episode.",
+      "collision": "Shared protocol collision rule.",
+      "horizon": 30,
+      "success_definition": "Both threshold-9 tasks are completed by step 30 under terminal service locks; exact candidate-pair coverage, exact service-pair coverage, capacity gap, and completion are reported.",
+      "termination": "Fixed at step 30; task completion does not terminate early.",
+      "observation": {
+        "sight": 3,
+        "special_rule": "Both tasks are visible from the compact symmetric start region. Start-cell identity assignment is seeded. Each agent observes its own service-lock bit; no pair, route, or peer action is prescribed."
+      },
+      "action": "Shared six-action protocol.",
+      "reward": "Shared operational reward. Service lock represents one-use allocation to simultaneous stations and is not reward shaping.",
+      "communication_setting": "All 12 directed non-self candidate links are available under each method native mechanism; both methods use two-member hyperedges. The environment forces neither a pair nor a communication edge.",
+      "uses": [
+        "Probe"
+      ],
+      "reviewer_comments": [
+        "GE-1E-PROBES",
+        "GE-1A-BASELINE",
+        "GE-1C-DECPOMDP"
+      ],
+      "core_claims": [
+        "feature-only complementarity-allocation stress",
+        "threshold-conditioned capability-gap construction"
+      ],
+      "probe_rules": {
+        "service_lock_after_success": true,
+        "randomize_agent_start_assignment": true,
+        "design_rationale": "The two simultaneous one-use commitments remove sequential reuse and navigation scale as explanations. Total capability equals total demand, so any over-capacity pair leaves the other station infeasible."
+      }
+    },
+    "probe_interaction": {
+      "name": "Reviewer Probe 2 V1: four-hop safety-interlock broadcast",
+      "family": "reviewer_probe",
+      "suite": "reviewer_probe",
+      "real_world_meaning": "Four independent service stations each have five capability-1 controllers on a registered five-node communication path. At every control tick only the hop-0 controller observes the noisy station safety permit. All five controllers must LOAD in the same tick when the permit is true and all must WAIT when it is false. The path diameter is four hops, so a two-hop communication stack cannot inform the far controllers in the same decision.",
+      "industrial_challenges": [
+        "remote safety-interlock information",
+        "five-agent same-step LOAD",
+        "multi-hop propagation of readiness evidence",
+        "unsafe actuation avoidance"
+      ],
+      "innovation_targets": [
+        "iterative state refinement across a constrained communication path",
+        "same-step synchronization under a remote station permit"
+      ],
+      "baseline_theoretical_difficulty": "Both methods receive the same observations, binary actions, supervised training target, physical five-node path, and budget. Every legal path link is enabled for both methods in this controlled diagnostic. HyperComm has one node-edge-node pass plus one GAT pass; HyperWave-X adds two registered dissipative refinements on the same hypergraph. The probe therefore tests same-decision propagation depth without a learned-router or train/test-topology confound. The no_wave control is required for wave-specific attribution.",
+      "map": {
+        "shape": [
+          21,
+          21
+        ],
+        "layout": "Four fixed stations at (4,4), (4,16), (16,4), and (16,16); five homogeneous controllers per station. Agent-to-position assignments are permuted at every seeded reset. Public station and hop identities are observed by both methods; the noisy station permit is visible only at hop zero. A registered five-node physical communication path connects each station in a line and is identical in training and frozen evaluation for both methods."
+      },
+      "agents": {
+        "count": 20,
+        "types": [
+          "homogeneous_capability_1"
+        ],
+        "capabilities": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "tasks": {
+        "requirements": [
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ],
+        "threshold": "Five capability-1 controllers must LOAD simultaneously; no individual or subset suffices.",
+        "arrival_process": {
+          "type": "iid_permit_gated_slots",
+          "initial_requirements": [
+            5,
+            5,
+            5,
+            5
+          ],
+          "events": [
+            {
+              "after_step": 1,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 2,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 3,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 4,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 5,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 6,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 7,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 8,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 9,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 10,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 11,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 12,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 13,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 14,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 15,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 16,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 17,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 18,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 19,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 20,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 21,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 22,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 23,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 24,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 25,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 26,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 27,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 28,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            },
+            {
+              "after_step": 29,
+              "requirements": [
+                5,
+                5,
+                5,
+                5
+              ]
+            }
+          ]
+        },
+        "workload": {
+          "task_count": 120,
+          "capacity_units": 600,
+          "interpretation": "Maximum candidate service slots. Realized workload is the number of station-permit-true slots generated at reset; blocked slots are safety decisions, not completed tasks. Realized counts are saved per episode."
+        }
+      },
+      "load_synchronization": "WAIT=0 and LOAD=1. Each slot is an independent permit or blocked interlock decision. An eligible request completes only when all five station controllers LOAD in that slot; otherwise it expires. A blocked LOAD never earns service reward. Violations are counted per decision and never alter later independent signals.",
+      "collision": "Stationary diagnostic: no navigation actions, no collisions, identical binary action spaces for both methods.",
+      "horizon": 30,
+      "success_definition": "Service task completion counts only eligible LOAD requests. The primary metric is balanced safe coordination = 0.5*(eligible requests synchronously completed / eligible requests + blocked decisions with all five agents WAIT / blocked decisions). Never interpret raw service completion alone as safety. Safe episode success requires all eligible requests completed and no blocked LOAD.",
+      "termination": "Fixed at step 30; task completion does not terminate early.",
+      "observation": {
+        "sight": 1,
+        "special_rule": "Original local map, absolute position, homogeneous public roster and clock; plus public one-hot station ID, public one-hot hop ID, and one sensor scalar. At hop zero the scalar is the station permit (0.2 or 0.8 plus independent uniform noise +/-0.1); at hops 1-4 it is the neutral constant 0.5. Permits are independent across ticks and stations with probability 0.5. No peer permit, future signal, training target, or action suggestion enters the frozen policy."
+      },
+      "action": "Binary WAIT=0 / LOAD=1 for all twenty agents and both methods; native stochastic sampling retained.",
+      "reward": "Per station decision, every member receives +1 when all five actions match the current station permit and -1 otherwise, plus a 0.5-weighted individual-correctness shaping term. The formal V1 probe trains only on the shared cross-entropy target; these rewards remain as transparent operational scores and do not drive optimization.",
+      "communication_setting": "Both methods use the same registered five-node physical path per station in training and evaluation (eight directed non-self links per station, 32 total). All legal links are deterministically enabled for both methods, while their native message encoders and GAT layers remain trained. This controlled-topology probe intentionally bypasses learned routing so that route collapse cannot masquerade as a wave-depth result.",
+      "uses": [
+        "Probe"
+      ],
+      "reviewer_comments": [
+        "GE-1E-PROBES",
+        "GE-1A-BASELINE",
+        "GE-1C-DECPOMDP"
+      ],
+      "core_claims": [
+        "safe synchronous decision-making with a four-hop remote permit",
+        "empirical full-method comparison; wave causality requires no_wave"
+      ],
+      "probe_rules": {
+        "probe_version": "V1",
+        "training_discount": 0.0,
+        "training_entropy_coefficient": 0.0001,
+        "training_learning_rate": 0.001,
+        "training_lr_decay": 0.995,
+        "training_gradient_clip_norm": 5.0,
+        "station_ready_probability": 0.5,
+        "station_member_count": 5,
+        "max_propagation_hops": 4,
+        "sensor_not_ready_level": 0.2,
+        "sensor_ready_level": 0.8,
+        "sensor_noise_half_width": 0.1,
+        "sensor_decision_threshold": 0.5,
+        "relay_neutral_level": 0.5,
+        "decision_correct_reward": 1,
+        "decision_incorrect_reward": -1,
+        "individual_shaping_weight": 0.5,
+        "randomize_agent_start_assignment": true,
+        "task_positions": [
+          [
+            4,
+            4
+          ],
+          [
+            4,
+            16
+          ],
+          [
+            16,
+            4
+          ],
+          [
+            16,
+            16
+          ]
+        ],
+        "agent_positions": [
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            6,
+            4
+          ],
+          [
+            3,
+            16
+          ],
+          [
+            4,
+            15
+          ],
+          [
+            4,
+            17
+          ],
+          [
+            5,
+            16
+          ],
+          [
+            6,
+            16
+          ],
+          [
+            15,
+            4
+          ],
+          [
+            16,
+            3
+          ],
+          [
+            16,
+            5
+          ],
+          [
+            17,
+            4
+          ],
+          [
+            18,
+            4
+          ],
+          [
+            15,
+            16
+          ],
+          [
+            16,
+            15
+          ],
+          [
+            16,
+            17
+          ],
+          [
+            17,
+            16
+          ],
+          [
+            18,
+            16
+          ]
+        ],
+        "development_train_seeds": [
+          9101
+        ],
+        "development_eval_seeds": [
+          9201,
+          9202,
+          9203,
+          9204,
+          9205
+        ],
+        "formal_eval_seeds": [
+          31001,
+          31002,
+          31003,
+          31004,
+          31005,
+          31006,
+          31007,
+          31008,
+          31009,
+          31010
+        ],
+        "primary_metric": "Probe2_Balanced_Safe_Coordination",
+        "design_rationale": "The final controlled probe uses one noisy station safety permit observed at hop zero and broadcast over the same public four-hop path in training and evaluation. Every legal link is enabled equally, so the Full-versus-no_wave comparison isolates iterative propagation depth. Any five unique non-negative training seeds may be supplied, provided they are identical across methods and disjoint from the held-out evaluation seeds.",
+        "training_support": "five_node_path",
+        "evaluation_support": "five_node_path",
+        "force_physical_links": true,
+        "evaluation_action_mode": "greedy",
+        "teacher_loss_coefficient": 1.0,
+        "teacher_only_training": true
+      }
+    }
+  },
+  "excluded_from_formal_suite": {},
+  "scenario_set_revision": "V1-six-main-two-probes-only",
+  "supplementary_scenario_ids": []
+}

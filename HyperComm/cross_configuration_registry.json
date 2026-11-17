@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "reviewer2_all_baseline_hetero_strong_cross_configuration_generalization",
+  "source_scenario": "hetero_strong",
+  "methods": [
+    "hyperwave_x",
+    "hypercomm",
+    "commnet",
+    "ic3net",
+    "magic",
+    "qmix",
+    "tarmac",
+    "teamcomm",
+    "tiecomm"
+  ],
+  "training_seeds": [
+    20,
+    23,
+    56,
+    89,
+    2025
+  ],
+  "evaluation_seeds": [
+    41001,
+    41002,
+    41003,
+    41004,
+    41005,
+    41006,
+    41007,
+    41008,
+    41009,
+    41010
+  ],
+  "episodes_per_evaluation_seed": 20,
+  "evaluation_mode": "zero_shot_without_parameter_updates",
+  "configurations": {
+    "source_configuration": {
+      "description": "In-distribution reference using the registered hetero_strong configuration and the cross-configuration evaluation seeds.",
+      "overrides": {}
+    },
+    "demand_shift": {
+      "description": "The task multiset, release times, and total capacity workload are preserved, while threshold combinations are regrouped into unseen rolling-demand waves.",
+      "overrides": {
+        "tasks": {
+          "requirements": [
+            9,
+            6,
+            7,
+            8,
+            9,
+            7,
+            6,
+            8
+          ],
+          "arrival_process": {
+            "type": "scheduled_threshold_waves",
+            "event_order": "Each event is released after resolving the listed environment step and is visible in the next observation.",
+            "initial_requirements": [
+              9,
+              6,
+              7
+            ],
+            "events": [
+              {
+                "after_step": 30,
+                "requirements": [
+                  8,
+                  9,
+                  7
+                ]
+              },
+              {
+                "after_step": 60,
+                "requirements": [
+                  6,
+                  8
+                ]
+              }
+            ],
+            "backlog": "FIFO; all eight jobs count in W_all from reset and no job is dropped if its reserved cell is temporarily occupied."
+          }
+        }
+      }
+    },
+    "fleet_shift": {
+      "description": "The fleet size, total capability, capability levels, map, observation interface, and workload are preserved, while the frequency of light, medium, and heavy robots is unseen during training.",
+      "overrides": {
+        "agents": {
+          "capabilities": [
+            1,
+            2,
+            2,
+            2,
+            4,
+            4,
+            4,
+            5
+          ]
+        }
+      }
+    }
+  }
+}
