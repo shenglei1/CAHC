@@ -1,4 +1,4 @@
-# Anonymous review artifact
+# CSCWD review artifact
 
 This repository contains the executable implementations used in the study:
 
