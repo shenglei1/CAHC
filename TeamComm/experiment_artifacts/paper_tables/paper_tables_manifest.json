@@ -1,0 +1,44 @@
+{
+  "status": "COMPLETE",
+  "results_root": "/home/sheng/A-code-my/hyerpcom-wave-X/TeamComm/results",
+  "scenario_ids": [
+    "hetero_mixed",
+    "hetero_strong",
+    "consensus_wide",
+    "fog_sight1_level",
+    "dynamic_overload",
+    "scale_20"
+  ],
+  "baseline_ids": [
+    "commnet",
+    "ic3net",
+    "magic",
+    "tarmac",
+    "teamcomm",
+    "tiecomm",
+    "qmix"
+  ],
+  "seed_ids": [
+    20,
+    23,
+    56,
+    89,
+    2025
+  ],
+  "completed_jobs": 210,
+  "expected_jobs": 210,
+  "missing_jobs": [],
+  "evaluation_rows": 42000,
+  "communication_rows": 42000,
+  "training_rows": 147000,
+  "seed_summary_rows": 210,
+  "method_scenario_summary_rows": 1260,
+  "confidence_interval": "two-sided 95% Student-t interval over five training-seed means",
+  "files": [
+    "paper_communication_metrics.csv",
+    "paper_episode_metrics.csv",
+    "paper_method_scenario_summary.csv",
+    "paper_seed_summary.csv",
+    "paper_training_curves.csv"
+  ]
+}

@@ -1,0 +1,6 @@
+# Compatible ranges; install a CUDA-specific PyTorch build appropriate for the host.
+# Locally validated on Python 3.9.25, torch 2.6.0+cu126, numpy 2.0.2,
+# and Gymnasium 0.29.1.
+numpy>=1.23,<3
+gymnasium==0.29.1
+torch>=2.0,<2.7
