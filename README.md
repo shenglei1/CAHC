@@ -3,7 +3,7 @@
 This repository contains the executable implementations used in the study:
 
 - HyperComm
-- HyperWave-X
+- CAHC
 - TeamComm baseline suite
 
 The repository includes the registered scenarios, formal experiment launchers,
